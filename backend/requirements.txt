@@ -29,3 +29,5 @@ uvloop==0.22.1
 watchfiles==1.1.1
 websockets==15.0.1
 xgboost==3.0.5
+pytest==8.4.2
+httpx==0.28.1
