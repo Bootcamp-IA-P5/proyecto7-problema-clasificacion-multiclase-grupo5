@@ -3,9 +3,13 @@
 import os
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from backend.models.schema import CoverTypePayload, CoverTypeResponse
 from backend.services import ml_models
+
+
+
 
 # Use asynccontextmanager to manage application startup/shutdown events
 @asynccontextmanager
