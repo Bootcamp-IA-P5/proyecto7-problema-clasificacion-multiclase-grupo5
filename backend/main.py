@@ -9,8 +9,6 @@ from backend.models.schema import CoverTypePayload, CoverTypeResponse
 from backend.services import ml_models
 
 
-
-
 # Use asynccontextmanager to manage application startup/shutdown events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
