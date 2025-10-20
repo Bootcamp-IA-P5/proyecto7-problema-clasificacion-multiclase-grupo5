@@ -78,7 +78,15 @@ def predict_xgboost(data: dict) -> int:
 
 # --- Future function placeholder for Random Forest ---
 def predict_random_forest(data: dict) -> int:
-    """Placeholder for Random Forest prediction logic."""
+    """
+    Performs inference using the loaded Random_forest model.
+
+    Args:
+        data: A dictionary containing the feature values.
+
+    Returns:
+        The predicted Cover_Type as an integer.
+    """
     model = MODELS.get("random_forest")
     # Convert input data dictionary into a NumPy array, maintaining feature order
     # The order is implicitly enforced by Pydantic's BaseModel iteration
