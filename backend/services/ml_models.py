@@ -17,7 +17,7 @@ RANDOM_FOREST_PATH = os.getenv("RANDOM_FOREST_MODEL")
 MODELS = {
     "xgboost_model": None,
     "xgboost_scaler": None,
-    "random_forest": None, # Placeholder
+    "random_forest": None, 
 }
 
 def load_models():
