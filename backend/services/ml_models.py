@@ -90,7 +90,7 @@ def predict_random_forest(data: dict) -> int:
     model = MODELS.get("random_forest")
     # Convert input data dictionary into a NumPy array, maintaining feature order
     # The order is implicitly enforced by Pydantic's BaseModel iteration
-    feature_values = list(data.values())
-    features_array = np.array(feature_values).reshape(1, -1)
-    prediction = model.predict(feature_array)[0]
+    features_values = list(data.values())
+    features_array = np.array(features_values).reshape(1, -1)
+    prediction = model.predict(features_array)[0]
     return int(prediction)
