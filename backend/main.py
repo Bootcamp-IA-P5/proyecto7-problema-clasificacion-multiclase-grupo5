@@ -70,14 +70,15 @@ def predict_cover_type_random_forest(payload: CoverTypePayload):
     Predicts the forest Cover_Type (a numeric class) based on the input features
     using the trained Random Forest model.
     """
-    # Current implementation raises NotImplementedError
     try:
-        ml_models.predict_random_forest(payload.model_dump())
-    except NotImplementedError:
-        raise HTTPException(
-            status_code=501, 
-            detail="Random Forest prediction endpoint is not yet implemented."
-        )
+        # Convert the Pydantic model payload to a dictionary for the service
+        prediction = ml_models.predict_random_forest(payload.model_dump())
+        
+        return CoverTypeResponse(cover_type=prediction)
+    
+    except RuntimeError as e:
+        # Catch errors related to un-loaded models
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
-        # Fallback error handling
+        # Catch other potential errors during prediction
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
