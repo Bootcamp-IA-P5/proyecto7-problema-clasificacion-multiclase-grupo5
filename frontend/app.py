@@ -81,6 +81,7 @@ def safe_json(resp: requests.Response):
 # Definición de helpers
 # =============================
 
+# Claves EXACTAS requeridas por el backend (no cambiar)
 WILDERNESS_NAMES = [
     "Wilderness_Area_01",
     "Wilderness_Area_02",
@@ -89,6 +90,68 @@ WILDERNESS_NAMES = [
 ]
 
 SOIL_NAMES = [f"Soil_Type_{i:02d}" for i in range(1, 41)]
+
+# Etiquetas amigables para UI (extraídas de covtype.txt)
+WILDERNESS_LABELS = {
+    1: "Rawah Wilderness Area",
+    2: "Neota Wilderness Area",
+    3: "Comanche Peak Wilderness Area",
+    4: "Cache la Poudre Wilderness Area",
+}
+
+SOIL_LABELS = {
+    1: "Cathedral family - Rock outcrop complex, extremely stony.",
+    2: "Vanet - Ratake families complex, very stony.",
+    3: "Haploborolis - Rock outcrop complex, rubbly.",
+    4: "Ratake family - Rock outcrop complex, rubbly.",
+    5: "Vanet family - Rock outcrop complex complex, rubbly.",
+    6: "Vanet - Wetmore families - Rock outcrop complex, stony.",
+    7: "Gothic family.",
+    8: "Supervisor - Limber families complex.",
+    9: "Troutville family, very stony.",
+    10: "Bullwark - Catamount families - Rock outcrop complex, rubbly.",
+    11: "Bullwark - Catamount families - Rock land complex, rubbly.",
+    12: "Legault family - Rock land complex, stony.",
+    13: "Catamount family - Rock land - Bullwark family complex, rubbly.",
+    14: "Pachic Argiborolis - Aquolis complex.",
+    15: "Unspecified in the USFS Soil and ELU Survey.",
+    16: "Cryaquolis - Cryoborolis complex.",
+    17: "Gateview family - Cryaquolis complex.",
+    18: "Rogert family, very stony.",
+    19: "Typic Cryaquolis - Borohemists complex.",
+    20: "Typic Cryaquepts - Typic Cryaquolls complex.",
+    21: "Typic Cryaquolls - Leighcan family, till substratum complex.",
+    22: "Leighcan family, till substratum, extremely bouldery.",
+    23: "Leighcan family, till substratum - Typic Cryaquolls complex.",
+    24: "Leighcan family, extremely stony.",
+    25: "Leighcan family, warm, extremely stony.",
+    26: "Granile - Catamount families complex, very stony.",
+    27: "Leighcan family, warm - Rock outcrop complex, extremely stony.",
+    28: "Leighcan family - Rock outcrop complex, extremely stony.",
+    29: "Como - Legault families complex, extremely stony.",
+    30: "Como family - Rock land - Legault family complex, extremely stony.",
+    31: "Leighcan - Catamount families complex, extremely stony.",
+    32: "Catamount family - Rock outcrop - Leighcan family complex, extremely stony.",
+    33: "Leighcan - Catamount families - Rock outcrop complex, extremely stony.",
+    34: "Cryorthents - Rock land complex, extremely stony.",
+    35: "Cryumbrepts - Rock outcrop - Cryaquepts complex.",
+    36: "Bross family - Rock land - Cryumbrepts complex, extremely stony.",
+    37: "Rock outcrop - Cryumbrepts - Cryorthents complex, extremely stony.",
+    38: "Leighcan - Moran families - Cryaquolls complex, extremely stony.",
+    39: "Moran family - Cryorthents - Leighcan family complex, extremely stony.",
+    40: "Moran family - Cryorthents - Rock land complex, extremely stony.",
+}
+
+# Nombres de clases (para tarjeta de resultado)
+COVER_TYPE_NAMES = {
+    1: "Spruce/Fir",
+    2: "Lodgepole Pine",
+    3: "Ponderosa Pine",
+    4: "Cottonwood/Willow",
+    5: "Aspen",
+    6: "Douglas-fir",
+    7: "Krummholz",
+}
 
 # Nota importante sobre features:
 # Los modelos entrenados en los notebooks suelen esperar el esquema del dataset UCI Covertype,
@@ -222,12 +285,18 @@ st.markdown("---")
 st.subheader("Zonas y Suelos")
 
 wilderness_sel = st.selectbox(
-    "Wilderness Area (1-4)", options=[1, 2, 3, 4], index=0,
-    help="Se convertirá a one-hot Wilderness_Area_01..04"
+    "Wilderness Area",
+    options=[1, 2, 3, 4],
+    index=0,
+    format_func=lambda i: f"{i:02d} – {WILDERNESS_LABELS[i]}",
+    help="Se convertirá a one-hot Wilderness_Area_01..04",
 )
-soil_sel = st.number_input(
-    "Soil Type (1-40)", min_value=1, max_value=40, value=10, step=1,
-    help="Se convertirá a one-hot Soil_Type_01..40"
+soil_sel = st.selectbox(
+    "Soil Type",
+    options=list(range(1, 41)),
+    index=9,  # 10 por defecto
+    format_func=lambda i: f"{i:02d} – {SOIL_LABELS[i]}",
+    help="Se convertirá a one-hot Soil_Type_01..40",
 )
 
 # Campo requerido por el backend (schema FEATURES)
@@ -261,34 +330,44 @@ for i, name in enumerate(SOIL_NAMES, start=1):
 
 st.markdown("---")
 
+# Botón de predicción y resultado (con feedback básico)
 left, right = st.columns([1, 2])
-
 with left:
     st.write("\n")
     predict_btn = st.button("Predecir cover type", type="primary")
-
 with right:
-    st.caption("Se envían al backend con las claves EXACTAS del schema (Wilderness_Area_01..04, Soil_Type_01..40).")
+    st.caption("Se enviarán los valores con las claves EXACTAS del schema (Wilderness_Area_01..04, Soil_Type_01..40).")
 
-# Resultado
 if predict_btn:
+    # Validaciones suaves previas
+    if Slope > 60:
+        st.warning("Slope > 60° es poco común en el dataset")
+    if Elevation < 1000 or Elevation > 4500:
+        st.warning("Elevation fuera de rango típico (1000–4500 m)")
+
     try:
         with st.spinner("Consultando backend..."):
             result = call_predict(model_choice, features)
-        st.success("Predicción recibida del backend")
-        st.subheader("Resultado")
-        st.json(result)
-        # Presentación simplificada
-        cover = result.get("cover_type")
-        proba = result.get("proba")
-        if cover is not None:
-            st.metric("Cover Type", cover)
-        if isinstance(proba, list) and len(proba) in (7,):
-            st.bar_chart({"Clase": list(range(1, 8)), "Prob": proba}, x="Clase", y="Prob")
+        if "error" in result:
+            st.warning(result.get("error"))
+            st.text(result.get("detail", ""))
+        else:
+            st.success("Predicción recibida del backend")
+            st.subheader("Resultado")
+            cover = result.get("cover_type")
+            if cover is not None:
+                colm1, colm2 = st.columns([1, 2])
+                with colm1:
+                    st.metric("Cover Type", f"{cover}")
+                    st.caption(COVER_TYPE_NAMES.get(int(cover), "Desconocido"))
+                with colm2:
+                    st.code(json.dumps(result, indent=2), language="json")
     except requests.HTTPError as e:
         st.error(f"Error HTTP del backend: {e.response.status_code} - {e.response.text}")
     except Exception as e:
         st.error(f"No fue posible obtener la predicción: {e}")
+
+# Nota de trazabilidad de endpoints (se mantiene)
 
 # Información de los endpoints y cómo se usan (para trazabilidad)
 st.markdown("""
