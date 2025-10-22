@@ -1,9 +1,12 @@
 # backend/services/ml_models.py
 
 import os
+import re
 import joblib
 import numpy as np
 from dotenv import load_dotenv
+
+from backend.models.schema import CoverTypeResponse
 
 # Load environment variables from .env file
 load_dotenv()
@@ -72,9 +75,10 @@ def predict_xgboost(data: dict) -> int:
     # 2. Make the prediction
     # XGBoost models typically return a single prediction array
     prediction = model.predict(scaled_features)[0]
+    percentages = predict_percentages(model, scaled_features)
+    response = CoverTypeResponse(cover_type=prediction, percentages=percentages)
 
-    # Convert to the required output format (integer)
-    return int(prediction)
+    return response
 
 # --- Future function placeholder for Random Forest ---
 def predict_random_forest(data: dict) -> int:
@@ -93,4 +97,19 @@ def predict_random_forest(data: dict) -> int:
     features_values = list(data.values())
     features_array = np.array(features_values).reshape(1, -1)
     prediction = model.predict(features_array)[0]
-    return int(prediction)
+    percentages = predict_percentages(model, features_array)
+    response = CoverTypeResponse(cover_type=prediction, percentages=percentages)
+   
+    return response
+
+
+def predict_percentages(model, data):
+    percentages = np.round(model.predict_proba(data) * 100, 2)[0]
+
+    formatted_strings = [ 
+        np.format_float_positional(p, precision=2, fractional=False, trim='k')
+        for p in percentages
+    ]
+
+    return formatted_strings
+
