@@ -1,5 +1,6 @@
 # Proyecto 7 · Clasificación Multiclase · Grupo 5
-Hola somos el Grupo 5 de F5. Tenemos 
+¡Hola! Somos el Grupo 5 de F5. Nuestro equipo está compuesto por: Oscar Rodríguez, quien desempeña el rol de SCRUM Master; Maribel Gutiérrez, nuestra Product Owner; Jabeich Benavides, encargado del Backend; y Anthony Caceda, el Frontend maravilla.
+
 
 ## Descripción del Proyecto
 
