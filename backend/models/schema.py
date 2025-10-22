@@ -33,3 +33,4 @@ class CoverTypeResponse(BaseModel):
     """
     # The output field as requested
     cover_type: int
+    percentages: list[float]

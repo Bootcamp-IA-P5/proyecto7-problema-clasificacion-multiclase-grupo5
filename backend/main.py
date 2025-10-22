@@ -46,9 +46,9 @@ def predict_cover_type_xgboost(payload: CoverTypePayload):
     """
     try:
         # Convert the Pydantic model payload to a dictionary for the service
-        prediction = ml_models.predict_xgboost(payload.model_dump())
+        response = ml_models.predict_xgboost(payload.model_dump())
         
-        return CoverTypeResponse(cover_type=prediction)
+        return response
     
     except RuntimeError as e:
         # Catch errors related to un-loaded models
@@ -72,9 +72,9 @@ def predict_cover_type_random_forest(payload: CoverTypePayload):
     """
     try:
         # Convert the Pydantic model payload to a dictionary for the service
-        prediction = ml_models.predict_random_forest(payload.model_dump())
+        response = ml_models.predict_random_forest(payload.model_dump())
         
-        return CoverTypeResponse(cover_type=prediction)
+        return response
     
     except RuntimeError as e:
         # Catch errors related to un-loaded models
