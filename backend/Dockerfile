@@ -1,37 +1,33 @@
-# Utiliza la imagen oficial de Python como base
 FROM python:3.12-slim
 
-# Establece el directorio de trabajo dentro del contenedor
+# Configuración Python para imágenes ligeras y logs inmediatos
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Establece el directorio de trabajo
 WORKDIR /app
 
-# Instala build tools (si los necesitas para xgboost)
-RUN apt-get update && apt-get install -y \
-    build-essential \
+# Instala dependencias de sistema necesarias para librerías (xgboost necesita libgomp1)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Usuario sin privilegios
-RUN adduser --disabled-password --gecos "" appuser
+# Copia y instala dependencias
+COPY ./backend/requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Copia el archivo de requerimientos del backend y los instala
-# Se copian primero para aprovechar el cache de Docker si no cambian
-COPY ./backend/requirements.txt ./backend/requirements.txt
-RUN pip install --no-cache-dir -r ./backend/requirements.txt
-RUN pip install xgboost --no-deps
-
-# Copia el código del backend y los recursos compartidos a sus respectivas carpetas
-COPY ./backend ./
+# Copia el resto del código
+COPY ./backend ./backend
 COPY ./resources ./resources
-COPY ./common ./common
 
-# Cambiar dueño de los archivos al nuevo usuario
-RUN chown -R appuser:appuser /app
+# Crear usuario no-root
+RUN useradd -m appuser && chown -R appuser:appuser /app
 
-# Cambiar al usuario sin privilegios
 USER appuser
 
-# Expone el puerto que usa FastAPI
+# Expone el puerto por defecto de Uvicorn
 EXPOSE 8000
 
-# Comando por defecto para ejecutar la aplicación de FastAPI
-# Este comando se ejecutará si no se especifica otro en docker-compose.yml
+# Comando por defecto al iniciar el contenedor
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
