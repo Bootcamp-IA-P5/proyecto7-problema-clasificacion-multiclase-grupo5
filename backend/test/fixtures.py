@@ -32,6 +32,11 @@ def valid_payload() -> dict:
 # Define the absolute path to the function we need to mock
 # This path must reflect where 'ml_models' is imported (in main.py)
 @pytest.fixture(scope="session")
-def ml_models_path() -> str:
+def xgboost_ml_models_path() -> str:
     """Fixture for the mock path to the prediction function."""
     return "backend.main.ml_models.predict_xgboost"
+
+@pytest.fixture(scope="session")
+def random_forest_ml_models_path() -> str:
+    """Fixture for the mock path to the random forest prediction function."""
+    return "backend.main.ml_models.predict_random_forest"
