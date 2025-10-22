@@ -35,6 +35,49 @@ MODEL_ENDPOINTS = {
 }
 
 # =============================
+# Utilidades de conectividad (Paso 1)
+# =============================
+
+def check_health(base_url: str) -> Dict[str, Any]:
+    """
+    Realiza un health check simple al backend.
+    - Hace GET al root '/'
+    - Mide latencia aproximada
+    - Devuelve dict con { ok: bool, status: int|None, latency_ms: float|None, body: any }
+    """
+    import time
+    url = base_url.rstrip("/") + "/"
+    t0 = time.perf_counter()
+    try:
+        resp = requests.get(url, timeout=5)
+        dt = (time.perf_counter() - t0) * 1000
+        return {"ok": resp.ok, "status": resp.status_code, "latency_ms": round(dt, 1), "body": safe_json(resp)}
+    except Exception as e:
+        return {"ok": False, "status": None, "latency_ms": None, "body": str(e)}
+
+
+def check_endpoint_exists(url: str) -> Dict[str, Any]:
+    """
+    Verifica si un endpoint existe intentando OPTIONS (no modifica estado).
+    - FastAPI suele responder 200 con métodos permitidos si la ruta existe.
+    - Si no existe, normalmente 404 o error de conexión.
+    """
+    try:
+        r = requests.options(url, timeout=5)
+        return {"exists": r.status_code < 400, "status": r.status_code, "allow": r.headers.get("allow", "")}
+    except Exception as e:
+        return {"exists": False, "status": None, "error": str(e)}
+
+
+def safe_json(resp: requests.Response):
+    """Intenta parsear JSON, si falla devuelve texto plano acotado."""
+    try:
+        return resp.json()
+    except Exception:
+        txt = resp.text
+        return txt if len(txt) < 500 else txt[:500] + "..."
+
+# =============================
 # Definición de helpers
 # =============================
 
@@ -110,6 +153,43 @@ with st.sidebar:
     st.text_input("BACKEND_BASE", value=BACKEND_BASE, disabled=True, help="Host:puerto del backend (env)")
     st.text_input("XGBOOST_URL", value=XGBOOST_URL, disabled=True, help="Path del endpoint XGBoost (env)")
     st.text_input("RANDOM_FOREST_URL", value=RANDOM_FOREST_URL, disabled=True, help="Path del endpoint RF (env)")
+
+    # --- Paso 1: Prueba de conexión y endpoints ---
+    st.markdown("---")
+    st.subheader("Estado del backend")
+    
+    if "connectivity" not in st.session_state:
+        st.session_state.connectivity = None  # para persistir resultado entre reruns
+
+    if st.button("Probar conexión"):
+        # 1) Health check a '/'
+        health = check_health(BACKEND_BASE)
+        # 2) Verificación de endpoints por OPTIONS
+        xgb_info = check_endpoint_exists(MODEL_ENDPOINTS["xgboost"]) 
+        rf_info = check_endpoint_exists(MODEL_ENDPOINTS["random_forest"]) 
+        st.session_state.connectivity = {
+            "health": health,
+            "xgboost": xgb_info,
+            "random_forest": rf_info,
+        }
+
+    conn = st.session_state.connectivity
+    if conn:
+        ok = conn["health"]["ok"]
+        badge = "🟢 OK" if ok else "🔴 FALLA"
+        st.write(f"Health: {badge} | Status: {conn['health']['status']} | Latencia: {conn['health']['latency_ms']} ms")
+        st.caption(f"Respuesta: {conn['health']['body']}")
+
+        st.write("Endpoints:")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.write("XGBoost:")
+            st.code(MODEL_ENDPOINTS["xgboost"], language="text")
+            st.write(f"Existe: {'✅' if conn['xgboost']['exists'] else '❌'} | Status: {conn['xgboost']['status']} | Allow: {conn['xgboost'].get('allow','')}")
+        with col_b:
+            st.write("Random Forest:")
+            st.code(MODEL_ENDPOINTS["random_forest"], language="text")
+            st.write(f"Existe: {'✅' if conn['random_forest']['exists'] else '❌'} | Status: {conn['random_forest']['status']} | Allow: {conn['random_forest'].get('allow','')}")
 
 # Inputs principales
 st.subheader("Variables de entrada")
