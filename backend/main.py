@@ -3,9 +3,11 @@
 import os
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from backend.models.schema import CoverTypePayload, CoverTypeResponse
 from backend.services import ml_models
+
 
 # Use asynccontextmanager to manage application startup/shutdown events
 @asynccontextmanager
@@ -56,26 +58,27 @@ def predict_cover_type_xgboost(payload: CoverTypePayload):
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
 
 
+
 @app.post(
     os.getenv("RANDOM_FOREST_URL"),
     response_model=CoverTypeResponse,
-    summary="Predict Cover Type using Random Forest (Not Implemented)",
-    # Mark this endpoint as deprecated until implemented
-    deprecated=True
+    summary="Predict Cover Type using Random Forest"
 )
+
 def predict_cover_type_random_forest(payload: CoverTypePayload):
     """
-    [Placeholder] Endpoint to predict the forest Cover_Type using the
-    trained Random Forest model.
+    Predicts the forest Cover_Type (a numeric class) based on the input features
+    using the trained Random Forest model.
     """
-    # Current implementation raises NotImplementedError
     try:
-        ml_models.predict_random_forest(payload.model_dump())
-    except NotImplementedError:
-        raise HTTPException(
-            status_code=501, 
-            detail="Random Forest prediction endpoint is not yet implemented."
-        )
+        # Convert the Pydantic model payload to a dictionary for the service
+        prediction = ml_models.predict_random_forest(payload.model_dump())
+        
+        return CoverTypeResponse(cover_type=prediction)
+    
+    except RuntimeError as e:
+        # Catch errors related to un-loaded models
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
-        # Fallback error handling
+        # Catch other potential errors during prediction
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
