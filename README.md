@@ -1,4 +1,5 @@
 # Proyecto 7 · Clasificación Multiclase · Grupo 5
+Hola somos el Grupo 5 de F5. Tenemos 
 
 ## Descripción del Proyecto
 
