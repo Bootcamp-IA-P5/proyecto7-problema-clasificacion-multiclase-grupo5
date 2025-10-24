@@ -4,6 +4,8 @@ from typing import Dict, Any, List
 
 import requests
 import streamlit as st
+import matplotlib.pyplot as plt
+import numpy as np
 from dotenv import load_dotenv
 
 # =============================
@@ -143,14 +145,26 @@ SOIL_LABELS = {
 }
 
 # Nombres de clases (para tarjeta de resultado)
+# Nota: Los índices ahora van de 0 a 6 según el nuevo formato
 COVER_TYPE_NAMES = {
-    1: "Spruce/Fir",
-    2: "Lodgepole Pine",
-    3: "Ponderosa Pine",
-    4: "Cottonwood/Willow",
-    5: "Aspen",
-    6: "Douglas-fir",
-    7: "Krummholz",
+    0: "Spruce/Fir",
+    1: "Lodgepole Pine",
+    2: "Ponderosa Pine",
+    3: "Cottonwood/Willow",
+    4: "Aspen",
+    5: "Douglas-fir",
+    6: "Krummholz",
+}
+
+# Descripciones completas de cada tipo de cobertura forestal
+COVER_TYPE_DESCRIPTIONS = {
+    0: "Abeto Rojo / Abeto de Colorado - Especies de coníferas que crecen en altitudes elevadas",
+    1: "Pino Contorto - Pino resistente que domina en áreas quemadas y de alta montaña",
+    2: "Pino Ponderosa - Pino de corteza gruesa característico de zonas secas y soleadas",
+    3: "Álamo del Río / Sauce - Especies caducifolias que crecen cerca de cuerpos de agua",
+    4: "Álamo Temblón - Árbol caducifolio con hojas que tiemblan, común en áreas perturbadas",
+    5: "Abeto Douglas - Conífera de crecimiento rápido común en el noroeste de América",
+    6: "Krummholz - Vegetación enana y deformada que crece en la línea de árboles alpina",
 }
 
 # Nota importante sobre features:
@@ -203,7 +217,7 @@ st.set_page_config(page_title="Covertype – XGBoost / RandomForest", page_icon=
 
 st.title("Clasificación de Cover Type")
 st.caption(
-    "Frontend mínimo (Streamlit) siguiendo seguimiento.txt. Selecciona modelo, ingresa variables y obtén la predicción."
+    "Selecciona modelo, ingresa variables y obtén la predicción."
 )
 
 # Panel lateral: modelo + config
@@ -242,17 +256,6 @@ with st.sidebar:
         badge = "🟢 OK" if ok else "🔴 FALLA"
         st.write(f"Health: {badge} | Status: {conn['health']['status']} | Latencia: {conn['health']['latency_ms']} ms")
         st.caption(f"Respuesta: {conn['health']['body']}")
-
-        st.write("Endpoints:")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.write("XGBoost:")
-            st.code(MODEL_ENDPOINTS["xgboost"], language="text")
-            st.write(f"Existe: {'✅' if conn['xgboost']['exists'] else '❌'} | Status: {conn['xgboost']['status']} | Allow: {conn['xgboost'].get('allow','')}")
-        with col_b:
-            st.write("Random Forest:")
-            st.code(MODEL_ENDPOINTS["random_forest"], language="text")
-            st.write(f"Existe: {'✅' if conn['random_forest']['exists'] else '❌'} | Status: {conn['random_forest']['status']} | Allow: {conn['random_forest'].get('allow','')}")
 
 # Inputs principales
 st.subheader("Variables de entrada")
@@ -352,16 +355,98 @@ if predict_btn:
             st.warning(result.get("error"))
             st.text(result.get("detail", ""))
         else:
-            st.success("Predicción recibida del backend")
-            st.subheader("Resultado")
-            cover = result.get("cover_type")
-            if cover is not None:
-                colm1, colm2 = st.columns([1, 2])
-                with colm1:
-                    st.metric("Cover Type", f"{cover}")
-                    st.caption(COVER_TYPE_NAMES.get(int(cover), "Desconocido"))
-                with colm2:
-                    st.code(json.dumps(result, indent=2), language="json")
+            st.success("✅ Predicción recibida del backend")
+            
+            # Obtener datos de la respuesta
+            cover_type = result.get("cover_type")
+            percentages = result.get("percentages", [])
+            
+            if cover_type is not None and percentages:
+                # Mostrar el tipo de cobertura principal (primera fila)
+                st.markdown("### 🌲 Tipo de cubierta forestal")
+                col1, col2 = st.columns([1, 2])
+
+                with col1:
+                    # Tarjeta con el tipo de cobertura principal usando componentes nativos de Streamlit
+                    cover_name = COVER_TYPE_NAMES.get(cover_type, "Desconocido")
+                    cover_description = COVER_TYPE_DESCRIPTIONS.get(cover_type, "Descripción no disponible")
+
+                    with st.container():
+                        st.markdown(f"###    {cover_name}")
+                        st.caption(cover_description)
+
+                        # Crear columnas para el código y confianza
+                        code_col, conf_col = st.columns(2)
+
+                        with code_col:
+                            st.metric(
+                                label="Código",
+                                value=f"{cover_type}",
+                                help="Código numérico del tipo de cobertura"
+                            )
+
+                        with conf_col:
+                            if 0 <= cover_type < len(percentages):
+                                confidence = percentages[cover_type]
+                                st.metric(
+                                    label="Confianza",
+                                    value=f"{confidence:.1f}%",
+                                    help=f"Probabilidad asignada por el modelo {model_choice}"
+                                )
+
+                        # Separador visual
+                        st.divider()
+
+                # Mostrar gráfico de barras (segunda fila, ancho completo)
+                st.markdown("### 📊 Distribución de probabilidades")
+                st.markdown("---")
+
+                # Crear gráfico de barras con Matplotlib
+                fig, ax = plt.subplots(figsize=(14, 6))
+
+                # Preparar datos para el gráfico con nombres más descriptivos pero compactos
+                full_labels = [COVER_TYPE_NAMES.get(i, str(i)) for i in range(len(percentages))]
+                compact_labels = [name.split('/')[0] if '/' in name else name for name in full_labels]
+                x = np.arange(len(full_labels))
+
+                # Crear barras
+                bars = ax.bar(x, percentages, color='#1f77b4', alpha=0.8)
+
+                # Resaltar la barra del tipo predicho
+                if 0 <= cover_type < len(bars):
+                    bars[cover_type].set_color('#2ca02c')  # Verde para la predicción
+                    bars[cover_type].set_alpha(1.0)  # Más opaca para resaltar
+
+                # Añadir etiquetas y título
+                ax.set_ylabel('Probabilidad (%)', fontsize=14, fontweight='bold')
+                ax.set_xticks(x)
+                ax.set_xticklabels(compact_labels, rotation=30, ha='right', fontsize=12, fontweight='bold')
+                ax.set_ylim(0, 100)
+                ax.grid(True, alpha=0.3, axis='y')
+
+                # Añadir etiquetas con los valores y nombres completos
+                for i, bar in enumerate(bars):
+                    height = bar.get_height()
+                    # Mostrar porcentaje arriba de la barra
+                    ax.text(
+                        bar.get_x() + bar.get_width()/2., height + 1,
+                        f'{height:.1f}%',
+                        ha='center', va='bottom',
+                        fontsize=11,
+                        fontweight='bold'
+                    )
+
+                # Ajustar diseño
+                plt.tight_layout()
+
+                # Mostrar el gráfico en Streamlit
+                st.pyplot(fig)
+
+                # Mostrar datos completos en una sección colapsable
+                with st.expander("Ver datos completos de la respuesta"):
+                    st.json(result)
+            else:
+                st.warning("El formato de la respuesta no es el esperado")
     except requests.HTTPError as e:
         st.error(f"Error HTTP del backend: {e.response.status_code} - {e.response.text}")
     except Exception as e:
@@ -376,5 +461,12 @@ st.markdown("""
 - **POST Random Forest**: `${BACKEND_BASE}${RANDOM_FOREST_URL}` (puede devolver 501 si no está implementado)
 
 Contrato de request: features directos según `backend/models/schema.py`.
-Contrato de respuesta: `{ "cover_type": int }`.
+Contrato de respuesta: 
+```json
+{
+  "cover_type": 3,
+  "percentages": [14, 22, 32, 3.5, 3.5, 25, 0]
+}
+```
+Donde `cover_type` es un número de 0 a 6 y `percentages` es un array de 7 elementos con las probabilidades de cada clase.
 """)
