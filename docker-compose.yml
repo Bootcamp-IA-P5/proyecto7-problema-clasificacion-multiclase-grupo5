@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - .env
+    container_name: fastapi_backend
+    ports:
+      - "8000:8000"
+    networks:
+      - app-network
+    volumes:
+      # Mount the entire project directory. This ensures path consistency
+      # between local and container environments.
+      - .:/app
+    # The default CMD in the Dockerfile assumes a different structure.
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    env_file:
+      - .env
+    environment:
+      - BACKEND_BASE=http://backend:8000
+    container_name: streamlit_frontend
+    ports:
+      - "8501:8501"
+    networks:
+      - app-network
+    depends_on:
+      - backend
+    volumes:
+      # Mount the entire project directory for path consistency.
+      - .:/app
+    # The default CMD in the Dockerfile is "streamlit run main.py".
+    # Since we mounted the whole project, the path is now different.
+    command: streamlit run frontend/app.py
+
+networks:
+  app-network:
+    driver: bridge
